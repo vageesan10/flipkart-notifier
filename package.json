@@ -1,14 +1,13 @@
 {
   "name": "flipkart-stock-checker",
   "version": "1.0.0",
-  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "playwright": "^1.54.1",
+    "playwright": "^1.44.0",
     "node-fetch": "^3.3.2"
   }
 }
