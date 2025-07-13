@@ -6,13 +6,13 @@ from discord_webhook import DiscordWebhook
 from flask import Flask
 from threading import Thread
 
-# Load your Render env variables
+# Environment variables from Render
 PINCODE = os.getenv("PINCODE")
 URL = os.getenv("URL")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 REFRESH_RATE = 30  # seconds between checks
-MESSAGE_COUNT = 5  # how many times to send
+MESSAGE_COUNT = 5  # how many notifications to send
 
 def check_stock():
     print("Notifier started...")
@@ -20,41 +20,41 @@ def check_stock():
     while sent_count < MESSAGE_COUNT:
         try:
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                "User-Agent": "Mozilla/5.0"
             }
             page = requests.get(URL, headers=headers)
             soup = BeautifulSoup(page.content, "html.parser")
 
-            # Check Flipkart's availability element
-            availability = soup.find("div", {"class": "_16FRp0"})
-            if availability:
-                status = availability.get_text(strip=True)
-                print(f"Availability status: {status}")
+            # TEMP: print first part of page to check for CAPTCHA/blocking
+            print("Page preview:")
+            print(soup.prettify()[:500])
 
-                if "Sold Out" not in status and "Coming Soon" not in status:
-                    webhook = DiscordWebhook(
-                        url=WEBHOOK_URL,
-                        content=f"✅ Product is AVAILABLE! {URL}"
-                    )
-                    webhook.execute()
-                    print(f"Notification sent ({sent_count + 1}/{MESSAGE_COUNT})")
-                    sent_count += 1
-                else:
-                    print("Product still out of stock...")
+            # BETTER: check for 'Add to cart' button
+            add_to_cart = soup.find("button", string="Add to cart")
+
+            if add_to_cart:
+                print(f"✅ Product is IN STOCK!")
+                webhook = DiscordWebhook(
+                    url=WEBHOOK_URL,
+                    content=f"✅ REAL: Product is in stock! {URL}"
+                )
+                webhook.execute()
+                sent_count += 1
+                print(f"Notification sent ({sent_count}/{MESSAGE_COUNT})")
             else:
-                print("Could not find availability status — check selector!")
+                print("❌ Product NOT in stock!")
 
         except Exception as e:
             print(f"Error: {e}")
 
         time.sleep(REFRESH_RATE)
 
-# --- Flask keep-alive ---
+# --- Flask server for keep-alive ---
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Flipkart Notifier is running (REAL MODE)!"
+    return "Flipkart Notifier is running (REAL MODE — Improved)!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
