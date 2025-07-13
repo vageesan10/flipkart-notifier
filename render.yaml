@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: my-cloud-bot
-    env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python bot.py"
+    name: flipkart-stock-checker
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
