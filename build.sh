@@ -4,6 +4,6 @@ echo "Installing dependencies..."
 pip install -r requirements.txt
 
 echo "Installing Playwright browsers..."
-playwright install
+python -m playwright install
 
 echo "Ready!"
