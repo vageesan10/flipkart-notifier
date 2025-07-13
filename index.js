@@ -1,74 +1,77 @@
-import express from 'express';
-import playwright from 'playwright';
-import fetch from 'node-fetch';
+import express from "express";
+import { chromium } from "playwright";
+import fetch from "node-fetch";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 const PRODUCT_URL = process.env.PRODUCT_URL;
 const PINCODE = process.env.PINCODE;
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
-app.get('/', (req, res) => {
-  res.send('✅ Flipkart Stock Notifier is running.');
-});
+// Function to check stock
+async function checkStock() {
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  await page.goto(PRODUCT_URL, { waitUntil: "domcontentloaded" });
 
-app.get('/check', async (req, res) => {
+  // Example: Close login popup if present
   try {
-    const browser = await playwright.chromium.launch();
-    const page = await browser.newPage();
-    await page.goto(PRODUCT_URL);
+    await page.click("._2KpZ6l._2doB4z", { timeout: 3000 });
+  } catch {}
 
-    // Example: check stock status
-    const availability = await page.textContent('body'); // Replace with actual selector
-    console.log(`Availability text: ${availability}`);
+  // Set pincode
+  try {
+    await page.click("._2P_LDn");
+    await page.fill("._36yFo0 input", PINCODE);
+    await page.click("._2P_LDn ._2KpZ6l");
+    await page.waitForTimeout(2000);
+  } catch {}
 
-    if (availability.includes('In stock')) {
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `✅ Product is **IN STOCK**!\n${PRODUCT_URL}`,
-        }),
-      });
-    } else {
-      console.log('❌ Product not in stock.');
+  let isOutOfStock = false;
+
+  try {
+    const outOfStockElement = await page.$("._16FRp0");
+    if (outOfStockElement) {
+      isOutOfStock = true;
     }
+  } catch {}
 
-    await browser.close();
-    res.send('✅ Stock check done.');
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('❌ Error during check.');
-  }
-});
+  await browser.close();
+  return isOutOfStock;
+}
 
-// Optional: run check automatically every 5 minutes
+// Webhook heartbeat every 10 seconds
 setInterval(async () => {
-  try {
-    const browser = await playwright.chromium.launch();
-    const page = await browser.newPage();
-    await page.goto(PRODUCT_URL);
+  await fetch(WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "🚀 Flipkart Notifier build is LIVE and RUNNING!" }),
+  });
+  console.log("Sent heartbeat to Discord");
+}, 10000);
 
-    const availability = await page.textContent('body'); // Replace selector
-    console.log(`Auto-check: ${availability}`);
-
-    if (availability.includes('In stock')) {
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `✅ [AUTO] Product is IN STOCK!\n${PRODUCT_URL}`,
-        }),
-      });
-    }
-
-    await browser.close();
-  } catch (err) {
-    console.error('❌ Error in auto-check:', err);
+// Root endpoint to check stock
+app.get("/", async (req, res) => {
+  const outOfStock = await checkStock();
+  if (outOfStock) {
+    await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "❌ Product is OUT OF STOCK" }),
+    });
+    res.send("❌ Product is OUT OF STOCK");
+  } else {
+    await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "✅ Product is IN STOCK" }),
+    });
+    res.send("✅ Product is IN STOCK");
   }
-}, 5 * 60 * 1000); // every 5 mins
+});
 
+// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
