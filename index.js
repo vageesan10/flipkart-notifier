@@ -1,8 +1,6 @@
 const express = require('express');
 const { chromium } = require('playwright');
-
-const fetch = (...args) =>
-  import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const fetch = require('node-fetch');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -18,4 +16,34 @@ async function checkStock() {
   const pageContent = await page.content();
   let status = 'OUT OF STOCK';
 
-  if (pageContent
+  if (pageContent.includes('Add to cart') || pageContent.includes('Add to Cart')) {
+    status = 'IN STOCK ✅';
+  }
+
+  await fetch(DISCORD_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: `Flipkart Stock Status: ${status}` }),
+  });
+
+  await browser.close();
+  return status;
+}
+
+async function keepAlive() {
+  await fetch(DISCORD_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: '✅ Flipkart notifier is running (ping every 10s)' }),
+  });
+}
+
+app.get('/', async (req, res) => {
+  const result = await checkStock();
+  res.send(`Checked: ${result}`);
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  setInterval(keepAlive, 10000);
+});
