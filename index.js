@@ -1,40 +1,39 @@
-import { chromium } from 'playwright';
-import axios from 'axios';
-import dotenv from 'dotenv';
+import express from "express";
+import { chromium } from "playwright";
+import axios from "axios";
 
-dotenv.config();
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-const PRODUCT_URL = process.env.PRODUCT_URL;  // Flipkart product link
-const PINCODE = process.env.PINCODE;          // Desired pincode
-const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK; // Discord webhook
+app.get("/", async (req, res) => {
+  const pincode = process.env.PINCODE;
+  const webhook = process.env.DISCORD_WEBHOOK_URL;
 
-(async () => {
-  const browser = await chromium.launch({
-    headless: true,
-  });
-
-  const page = await browser.newPage();
-  await page.goto(PRODUCT_URL, { waitUntil: 'networkidle' });
-
-  // Example: set pincode
-  await page.click('._2P_LDn'); // Pincode field
-  await page.fill('._2P_LDn input', PINCODE);
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(2000); // wait for refresh
-
-  // Extract stock status
-  let stockStatus;
-  try {
-    stockStatus = await page.textContent('._16FRp0'); // selector for 'Out of Stock'
-  } catch {
-    stockStatus = 'In Stock';
+  if (!webhook || !pincode) {
+    res.status(500).send("Environment variables not set!");
+    return;
   }
 
-  // Send to Discord
-  await axios.post(DISCORD_WEBHOOK, {
-    content: `🔔 Flipkart stock update: **${stockStatus}** for pincode ${PINCODE}\n${PRODUCT_URL}`
-  });
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
 
-  console.log(`Status: ${stockStatus}`);
-  await browser.close();
-})();
+  try {
+    await page.goto("https://www.flipkart.com");
+
+    // Your scraping logic here
+    const message = `Checked stock for pincode ${pincode}`;
+
+    await axios.post(webhook, { content: message });
+
+    res.send(`Done: ${message}`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error occurred");
+  } finally {
+    await browser.close();
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
