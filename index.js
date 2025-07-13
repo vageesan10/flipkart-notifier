@@ -1,40 +1,74 @@
-import { chromium } from 'playwright';
+import express from 'express';
+import playwright from 'playwright';
 import fetch from 'node-fetch';
+
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 const PRODUCT_URL = process.env.PRODUCT_URL;
 const PINCODE = process.env.PINCODE;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
-async function checkStock() {
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
+app.get('/', (req, res) => {
+  res.send('✅ Flipkart Stock Notifier is running.');
+});
 
-  await page.goto(PRODUCT_URL, { waitUntil: 'domcontentloaded' });
+app.get('/check', async (req, res) => {
+  try {
+    const browser = await playwright.chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(PRODUCT_URL);
 
-  // Enter pincode
-  await page.fill('input[placeholder="Enter Delivery Pincode"]', PINCODE);
-  await page.click('._2P_LDn');
+    // Example: check stock status
+    const availability = await page.textContent('body'); // Replace with actual selector
+    console.log(`Availability text: ${availability}`);
 
-  // Wait for availability info to appear
-  await page.waitForTimeout(3000);
+    if (availability.includes('In stock')) {
+      await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `✅ Product is **IN STOCK**!\n${PRODUCT_URL}`,
+        }),
+      });
+    } else {
+      console.log('❌ Product not in stock.');
+    }
 
-  // Example selector: Update according to Flipkart’s page structure
-  const stockStatus = await page.$eval('._16FRp0', el => el.textContent);
-
-  if (!stockStatus.includes('Not available')) {
-    console.log('Product is available! Sending Discord notification...');
-    await fetch(DISCORD_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `✅ Product is in stock! [Check here](${PRODUCT_URL})`
-      }),
-    });
-  } else {
-    console.log('Product is not available.');
+    await browser.close();
+    res.send('✅ Stock check done.');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('❌ Error during check.');
   }
+});
 
-  await browser.close();
-}
+// Optional: run check automatically every 5 minutes
+setInterval(async () => {
+  try {
+    const browser = await playwright.chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(PRODUCT_URL);
 
-checkStock().catch(console.error);
+    const availability = await page.textContent('body'); // Replace selector
+    console.log(`Auto-check: ${availability}`);
+
+    if (availability.includes('In stock')) {
+      await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `✅ [AUTO] Product is IN STOCK!\n${PRODUCT_URL}`,
+        }),
+      });
+    }
+
+    await browser.close();
+  } catch (err) {
+    console.error('❌ Error in auto-check:', err);
+  }
+}, 5 * 60 * 1000); // every 5 mins
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
