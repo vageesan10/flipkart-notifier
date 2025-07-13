@@ -1,9 +1,11 @@
 {
   "name": "flipkart-stock-checker",
   "version": "1.0.0",
+  "description": "Flipkart stock notifier using Playwright, Render, GitHub, Discord Webhook — fully cloud",
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "postinstall": "npx playwright install",
     "start": "node index.js"
   },
   "dependencies": {
