@@ -1,7 +1,6 @@
 {
   "name": "flipkart-notifier",
   "version": "1.0.0",
-  "description": "Flipkart stock notifier that sends updates to Discord",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
