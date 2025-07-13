@@ -1,1 +1,20 @@
-node index.js
+# Use official Playwright base image
+FROM mcr.microsoft.com/playwright:v1.43.1-jammy
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies (including Playwright and its browsers)
+RUN npm install
+
+# Copy all source files
+COPY . .
+
+# Expose port
+EXPOSE 10000
+
+# Command to run your app
+CMD ["node", "index.js"]
