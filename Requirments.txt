@@ -1,3 +1,5 @@
+requests
+beautifulsoup4
+discord-webhook
+Flask
 playwright
-discord_webhook
-flask
