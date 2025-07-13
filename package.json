@@ -1,12 +1,14 @@
 {
-  "name": "flipkart-stock-checker",
+  "name": "flipkart-notifier",
   "version": "1.0.0",
+  "description": "Flipkart stock notifier that sends updates to Discord",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "express": "^4.19.2",
     "playwright": "^1.44.0",
     "node-fetch": "^3.3.2"
   }
