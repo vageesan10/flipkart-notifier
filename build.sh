@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-echo "Installing dependencies..."
+echo "Installing Python deps..."
 pip install -r requirements.txt
 
 echo "Installing Playwright browsers..."
 python -m playwright install
 
-echo "Ready!"
+echo "✅ Build done."
