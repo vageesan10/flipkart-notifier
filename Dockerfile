@@ -6,6 +6,9 @@ COPY package*.json ./
 
 RUN npm install
 
+# THIS IS CRUCIAL!
+RUN npx playwright install
+
 COPY . .
 
 CMD ["node", "index.js"]
