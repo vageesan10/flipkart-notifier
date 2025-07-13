@@ -1,94 +1,60 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.support import expected_conditions as expc
-from bs4 import BeautifulSoup
-from datetime import datetime
 import os
 import time
 import requests
+from bs4 import BeautifulSoup
+from discord_webhook import DiscordWebhook
+from flask import Flask
+from threading import Thread
 
+# Load from environment
+PINCODE = os.getenv("PINCODE")
+URL = os.getenv("URL")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-def discord():
-    global i,msg_count
-    if name.text.startswith('Delivery'):
-        i=i+1
-        if i<=msg_count:
-            discord_webhook_url = 'WEBHOOK URL (Str Type)'
-            Message = {"content": name.text}
-            requests.post(discord_webhook_url, data=Message)
-            time.sleep(1.5)
-            print('Message sent to Discord\n')
-        else:
-            driver.quit()
-            exit()  
+# Other config
+REFRESH_RATE = 10  # seconds
+MESSAGE_COUNT = 3
 
-def pincode():
-    WebDriverWait(driver, 10).until(expc.presence_of_element_located((By.ID, "pincodeInputId")))
-    element = driver.find_element_by_id('pincodeInputId')
-    element.send_keys(pin)
-    element.send_keys(Keys.RETURN)
-    time.sleep(8)
-    
-def outofstock():
-    while True:
-        try: 
-            driver.find_element_by_xpath('//*[@id="container"]/div/div[3]/div[1]/div[1]/div[2]/div/ul/li[2]/form/button')
-            break
-        except:
-            p=driver.find_element_by_class_name('_16FRp0')
-            now = datetime.now()
-            current_time = now.strftime("%H:%M  ")
-            print(current_time,end='')
-            print('%s\n'%p.text)
-        driver.refresh()
-        time.sleep(20)
-            
-        
-#Initialising chrome options
-chrome_options = Options()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--window-size=1920x1080")
+def check_stock():
+    print("Notifier started...")
+    sent_count = 0
+    while sent_count < MESSAGE_COUNT:
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            }
+            page = requests.get(URL, headers=headers)
+            soup = BeautifulSoup(page.content, "html.parser")
+            availability = soup.find("div", {"class": "_16FRp0"}).get_text().strip()
+            print(f"Availability status: {availability}")
 
-#Enter the Picode
-pin='PINCODE HERE (Str Type)'
+            if "Sold Out" not in availability and "Coming Soon" not in availability:
+                webhook = DiscordWebhook(url=WEBHOOK_URL, content=f"✅ Product is available! {URL}")
+                webhook.execute()
+                sent_count += 1
+                print(f"Notification sent ({sent_count}/{MESSAGE_COUNT})")
+            else:
+                print("Still out of stock...")
 
-driver = webdriver.Chrome(options=chrome_options, executable_path=ChromeDriverManager().install())
+        except Exception as e:
+            print(f"Error: {e}")
 
-#Initialising driver and Enter URL of Page
-driver.get('URL HERE')
+        time.sleep(REFRESH_RATE)
 
-outofstock()
-pincode()
+# ---- Flask keep-alive server ----
+app = Flask('')
 
-i=0
-#Enter the COUNT here (INT type)(Default 3)
-msg_count= 3
+@app.route('/')
+def home():
+    return "Flipkart Notifier is running!"
 
-while(True):
-    driver.refresh()
-    
-    #Enter Refresh Frequency (INT TYPE)(Default 5)
-    frqy= 5  
-    time.sleep(frqy)
-    
-    c=driver.page_source
-    soup = BeautifulSoup(c,features="lxml")
-    name=soup.find('div', attrs={'class':'_1NQ_ER'})  
-    if name== None:
-       name=soup.find('div', attrs={'class':'_3XINqE'})
+def run_web():
+    app.run(host='0.0.0.0', port=8080)
 
-    now = datetime.now()
-    current_time = now.strftime("%H:%M  ")
-    print(current_time,end='')
-    print(name.text)
-    
-    discord()
-    
+# Run Flask + Notifier together
+if __name__ == "__main__":
+    t1 = Thread(target=run_web)
+    t1.start()
 
-#ATTENTION
-#I'm not responsible for any loss or damage caused to you
-#YOU ARE USING THIS SCRIPT ON YOUR OWN RISK
+    t2 = Thread(target=check_stock)
+    t2.start()
